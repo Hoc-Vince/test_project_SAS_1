@@ -1,0 +1,128 @@
+%let path=/home/u35558699/ECRB94/TSA;
+%let out_path=/home/u35558699/ECRB94/output;
+%let state_var=IL;
+libname tsa '/home/u35558699/ECRB94/TSA';
+
+proc import datafile="&path/TSAClaims2002_2017.csv" out=tsa.claims_cleaned dbms=csv 
+		replace;
+	guessingrows=max;
+run;
+
+proc sort data=tsa.claims_cleaned out=tsa.claims_nodupe
+noduprecs;
+by _ALL_;
+run;
+
+Data tsa.claims_repair;
+	set tsa.claims_nodupe;
+	if Claim_Type='' or  Claim_Type='-' then Claim_Type="Unknown";
+	if Claim_Site='' or  Claim_Site='-' then Claim_Site="Unknown";
+	if Disposition='' or  Disposition='-' then Disposition="Unknown";
+run;
+
+
+
+data tsa.claims_repair_p2;
+	set tsa.claims_repair;
+	
+	Format Close_amount Dollar10.2;
+	Format Date_Received date9.;
+	Format Incident_Date date9.;
+	
+	
+	
+	
+
+	if Claim_Type=:'Passenger Property Loss/' then
+		Claim_Type='Passenger Property Loss';
+
+	if Claim_Type=:'Property Damage/' then
+		Claim_Type='Property Damage';
+
+	if Disposition=:'Closed: Canceled' then
+		Disposition='Closed:Canceled';
+
+	if Disposition=:'losed: Contractor Claim' then
+		Disposition='Closed:Contractor Claim';
+	StateName=upcase(StateName);
+	State=upcase(State);
+
+	if missing(Incident_Date) then
+		Date_Issues="Needs Review";
+
+	if missing(Date_Received) then
+		Date_Issues="Needs Review";
+
+	if Incident_Date>mdy(12, 31, 2017) or Incident_Date<mdy(1, 1, 2002) then
+		Date_Issues="Needs Review";
+
+	if Date_Received >mdy(12, 31, 2017) or Date_Received <mdy(1, 1, 2002) then
+		Date_Issues="Needs Review";
+
+	if Incident_Date>Date_Received then
+		Date_Issues="Needs Review";
+	drop County City	;
+run;
+
+/*proc freq data=tsa.claims_repair_p2 order=freq;
+tables Claim_Type Claim_Site Disposition State StateName Date_issues / nofreq nopercent;
+run;*/
+data tsa.pre_output;
+	set tsa.claims_repair_p2;
+	where date_issues NE "Needs Review";
+run;
+
+proc sort data=tsa.pre_output out=tsa.pre_output_sorted;
+	by Incident_Date;
+run;
+
+/*proc sort	data=tsa.pre_output_sorted;
+by Incident_Date;
+run;*/
+data tsa.pre_output_states;
+	set tsa.pre_output_sorted;
+	where State eq "&state_var";
+run;
+
+data tsa.pre_output_sorted_year;
+	set tsa.pre_output_sorted;
+	format Incident_Year 
+Incident_Year=Year(Incident_Date);
+run;
+
+ods graphics on;
+ods pdf file="&out_path/TSA_Report.pdf";
+
+Title1 "How many date issues are in the overall data?";
+	proc means data=tsa.pre_output_sorted SUM;
+		var Incident_Date;
+	run;
+
+Title1 "How many claims per year of Incident_Date are in the overall data?";	
+proc freq data=tsa.pre_output_sorted_year;
+		tables Incident_Year/ plots=freqplot(orient=horizontal scale=percent GROUPBY=row) ;
+	run;	
+	
+
+	
+title1 "Claim_type for Satate &state_var";
+proc freq data=tsa.pre_output_states order=freq;
+	tables Claim_Type;
+run;
+
+title1 "Disposition for Satate &state_var";
+proc freq data=tsa.pre_output_states order=freq;
+	tables Disposition;
+run;
+
+title1 "Claim_Site for Satate &state_var";
+proc freq data=tsa.pre_output_states order=freq;
+	tables Claim_Site;
+run;
+
+Title1; 
+proc means data=tsa.pre_output_sorted sum mean min max maxdec=0;
+	var Close_Amount;
+run;
+
+ods _all_ close;
