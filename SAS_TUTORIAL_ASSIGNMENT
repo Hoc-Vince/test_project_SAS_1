@@ -1,14 +1,9 @@
 %let path='/home/u35558699/ECRB94/data';
 libname cr &path;
 
-proc format;
-   invalue Contin 1="North America"
-                      2="South America"
-                      3="Europe"
-                      4="Africa"
-                      5="Asia"
-                      6="Oceania"
-                      7="Antarctica";
+proc format library=work;
+	invalue $FMTAAA 1="North America" 2="South America" 3="Europe" 4="Africa" 
+		5="Asia" 6="Oceania" 7="Antarctica";
 run;
 
 data cr.pre_cleaned_tourism;
@@ -20,7 +15,7 @@ data cr.cleaned_tourism(keep=A Country Series _2014) ;
  *	set cr.tourism;
  *run;
  */
-data cleaned_tourism slag/*(drop=Multiplyer Country A )*/;
+data cleaned_tourism(drop=Multiplyer Country A) slag;
 	set cr.pre_cleaned_tourism;
 
 	/*Format Section*/
@@ -112,34 +107,31 @@ countries - US$ Mn" then
 run;
 
 data country_info(drop=Country);
-	set country_info;
+	set cr.country_info;
 	format Country_name $55.;
 	Country_name=Country;
 run;
 
-proc sort country_info;
+proc sort data=country_info;
 	by country_name;
 run;
 
-proc sort cleaned_tourism;
+proc sort data=cleaned_tourism;
 	by country_name;
 run;
 
-data final_tourism nocountryfound;
-	merge country_info(in=in_info) country_name(in=in_tourism);
-	format Continent Contin.;
-	
+data final_tourism(drop=i Continent _2014) nocountryfound;
+	merge country_info(in=in_info) cleaned_tourism(in=in_tourism);
+	format Continent_temp $FMTAAA.;
 	by country_name;
 
 	if in_info=1 and in_tourism=1 then
 		do;
+			Continent_temp=ontinent;
 			output final_tourism;
 		end;
 
 	if in_tourism=0 then
-		do;
-			output nocountryfound;
-		end;
-	run;
-	
+		output nocountryfound;
+run;
 	
