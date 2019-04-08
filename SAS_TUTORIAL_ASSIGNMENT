@@ -1,0 +1,145 @@
+%let path='/home/u35558699/ECRB94/data';
+libname cr &path;
+
+proc format;
+   invalue Contin 1="North America"
+                      2="South America"
+                      3="Europe"
+                      4="Africa"
+                      5="Asia"
+                      6="Oceania"
+                      7="Antarctica";
+run;
+
+data cr.pre_cleaned_tourism;
+	set cr.tourism (drop=_1995--_2013);
+run;
+
+/*	ALT CODE
+data cr.cleaned_tourism(keep=A Country Series _2014) ;
+ *	set cr.tourism;
+ *run;
+ */
+data cleaned_tourism slag/*(drop=Multiplyer Country A )*/;
+	set cr.pre_cleaned_tourism;
+
+	/*Format Section*/
+	format Country_Name $55.;
+	format Tourism_Type $55.;
+	format Category $55.;
+	format Series $55.;
+	format Y2014 Comma24.2;
+	Format Multiplyer 15.;
+	Retain Country_Name;
+	Retain Tourism_Type;
+	Retain Category;
+	Retain Multiplyer;
+	Retain Series;
+
+	if A not=. then
+		do;
+			Country_Name=Country;
+			i=0;
+		end;
+
+	if Country="Inbound tourism" then
+		do;
+			Tourism_Type="Inbound tourism";
+			i=0;
+		end;
+
+	if Country="Outbound tourism" then
+		do;
+			Tourism_Type="Outbound tourism";
+			i=0;
+		end;
+
+	if Country="Arrivals - Thousands" then
+		do;
+			Category=scan(Country, 1);
+			Multiplyer=1000;
+			i=1;
+		end;
+
+	if Country="Departures - Thousands" then
+		do;
+			Category=scan(Country, 1);
+			Multiplyer=1000;
+			i=1;
+		end;
+
+	if Country="Tourism expenditure in other
+countries - US$ Mn" then
+		do;
+			Category="Tourism expenditure in other countries - US$";
+			Multiplyer=1000000;
+			i=1;
+		end;
+
+	if Country="Passenger transport - US$ Mn" then
+		do;
+			Category="Passenger transport - US$";
+			Multiplyer=1000000;
+			i=1;
+		end;
+
+	if Country="Tourism expenditure in the country
+- US$ Mn" then
+		do;
+			Category="Tourism expenditure in the country - US$";
+			Multiplyer=1000000;
+			i=1;
+		end;
+
+	if Country="Travel - US$ Mn" then
+		do Category="Travel - US$";
+			Multiplyer=1000000;
+			i=1;
+		end;
+
+	if series=".." then
+		series=' ';
+
+	if series not=".." then
+		series=upcase(series);
+	Y2014=input(_2014, $6.)*Multiplyer;
+
+	if i=1 then
+		output cleaned_tourism;
+
+	if i=0 then
+		output slag;
+run;
+
+data country_info(drop=Country);
+	set country_info;
+	format Country_name $55.;
+	Country_name=Country;
+run;
+
+proc sort country_info;
+	by country_name;
+run;
+
+proc sort cleaned_tourism;
+	by country_name;
+run;
+
+data final_tourism nocountryfound;
+	merge country_info(in=in_info) country_name(in=in_tourism);
+	format Continent Contin.;
+	
+	by country_name;
+
+	if in_info=1 and in_tourism=1 then
+		do;
+			output final_tourism;
+		end;
+
+	if in_tourism=0 then
+		do;
+			output nocountryfound;
+		end;
+	run;
+	
+	
