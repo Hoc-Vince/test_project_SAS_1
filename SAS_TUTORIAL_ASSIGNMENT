@@ -1,10 +1,8 @@
 %let path='/home/u35558699/ECRB94/data';
 libname cr &path;
+libname formtlib &path;
 
-proc format library=work;
-	invalue $FMTAAA 1="North America" 2="South America" 3="Europe" 4="Africa" 
-		5="Asia" 6="Oceania" 7="Antarctica";
-run;
+
 
 data cr.pre_cleaned_tourism;
 	set cr.tourism (drop=_1995--_2013);
@@ -120,18 +118,28 @@ proc sort data=cleaned_tourism;
 	by country_name;
 run;
 
-data final_tourism(drop=i Continent _2014) nocountryfound;
+proc format ;
+	value CONTO 1="North America" 2="South America" 3="Europe" 4="Africa" 
+		5="Asia" 6="Oceania" 7="Antarctica";
+run;
+
+data final_tourism(drop=i _2014) nocountryfound;
+	format Continent CONTO.;
+	
 	merge country_info(in=in_info) cleaned_tourism(in=in_tourism);
-	format Continent_temp $FMTAAA.;
 	by country_name;
 
 	if in_info=1 and in_tourism=1 then
-		do;
-			Continent_temp=ontinent;
+		do; 
+		
 			output final_tourism;
 		end;
 
 	if in_tourism=0 then
 		output nocountryfound;
 run;
-	
+
+data final_tourism_2;
+	set final_tourism;
+	format Continent CONTO.;
+run;	
